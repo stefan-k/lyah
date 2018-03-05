@@ -24,4 +24,10 @@ dirAndSize = do
 
 main = do
   input <- getContents
-  putStrLn ("DEBUG: got input " ++ input)
+  let dirs =
+        case parse parseInput "stdin" input of
+          Left err ->
+            error $ "Input:\n" ++ show input ++ "\nError:\n" ++ show err
+          Right result -> result
+  putStrLn "DEBUG: parsed:"
+  print dirs
