@@ -28,8 +28,13 @@ prop_GreedyPackIsFixpoint ds =
 
 prop_DynamicPackIsFixpoint :: [Dir] -> Bool
 prop_DynamicPackIsFixpoint ds =
-  let pack = dynamicPack ds
-  in packSize pack == packSize (dynamicPack (dirs pack))
+  let pack = dynamicPack mediaSize ds
+  in packSize pack == packSize (dynamicPack mediaSize (dirs pack))
+
+prop_DynamicPackSmallDisk :: [Dir] -> Bool
+prop_DynamicPackSmallDisk ds =
+  let pack = dynamicPack 50000 ds
+  in packSize pack == packSize (dynamicPack 50000 (dirs pack))
 
 -- parseInput parses output of "du -sb", which consists of many 
 -- lines, each of which describes a single directory
@@ -62,9 +67,9 @@ dirAndSize = do
   return (Dir (read size) dir_name)
 
 greedyPack :: [Dir] -> DirPack
-greedyPack ddirs = foldl maybeAddDir (DirPack 0 []) $ sortBy cmpSize ddirs
+greedyPack ddirs = foldl maybeAddDir (DirPack 0 []) $ sortBy cmpSize' ddirs
   where
-    cmpSize d1 d2 = compare (dirSize d1) (dirSize d2)
+    cmpSize' d1 d2 = compare (dirSize d1) (dirSize d2)
 
 maybeAddDir :: DirPack -> Dir -> DirPack
 maybeAddDir p d =
@@ -75,27 +80,48 @@ maybeAddDir p d =
        else DirPack newSize newDirs
 
 -- Dynamic programming solution to the knapsack problem
-precomputeDisksFor :: [Dir] -> [DirPack]
-precomputeDisksFor ddirs =
-  let precomp = map bestDisk [0 ..]
-      bestDisk 0 = DirPack 0 []
-      bestDisk limit =
-        case [ DirPack (dirSize d + s) (d : ds)
-             | d <- filter (inRange (1, limit) . dirSize) ddirs
-             , dirSize d > 0
-             , let (DirPack s ds) = precomp !! fromInteger (limit - dirSize d)
-             , d `notElem` ds
-             ] of
-          [] -> DirPack 0 []
-          packs -> maximumBy cmpSize packs
-      cmpSize a b = compare (packSize a) (packSize b)
-  in precomp
+{- precomputeDisksFor :: [Dir] -> [DirPack] -}
+{- precomputeDisksFor ddirs = -}
+{-   let precomp = map bestDisk [0 ..] -}
+{-       bestDisk 0 = DirPack 0 [] -}
+{-       bestDisk limit = -}
+{-         case [ DirPack (dirSize d + s) (d : ds) -}
+{-              | d <- filter (inRange (1, limit) . dirSize) ddirs -}
+{-              , dirSize d > 0 -}
+{-              , let (DirPack s ds) = precomp !! fromInteger (limit - dirSize d) -}
+{-              , d `notElem` ds -}
+{-              ] of -}
+{-           [] -> DirPack 0 [] -}
+{-           packs -> maximumBy cmpSize packs -}
+{-       cmpSize a b = compare (packSize a) (packSize b) -}
+{-   in precomp -}
+bestDisk :: Integer -> [Dir] -> DirPack
+bestDisk 0 _ = DirPack 0 []
+bestDisk _ [] = DirPack 0 []
+bestDisk limit ddirs =
+  case [ DirPack (dirSize d + s) (d : ds)
+       | let smallEnough = filter (inRange (1, limit) . dirSize) ddirs
+       , d <- smallEnough
+       , dirSize d > 0
+       , let (DirPack s ds) =
+               bestDisk (limit - dirSize d) (delete d smallEnough)
+       ] of
+    [] -> DirPack 0 []
+    packs -> maximumBy cmpSize packs
 
-dynamicPack :: [Dir] -> DirPack
-dynamicPack ddirs = precomputeDisksFor ddirs !! fromInteger mediaSize
+cmpSize :: DirPack -> DirPack -> Ordering
+cmpSize a b = compare (packSize a) (packSize b)
 
+dynamicPack :: Integer -> [Dir] -> DirPack
+dynamicPack = bestDisk
+
+{- dynamicPack limit ddirs = precomputeDisksFor ddirs !! fromInteger limit -}
 main :: IO ()
-main = do
+main = quickCheck prop_DynamicPackIsFixpoint
+
+{- main = quickCheck prop_DynamicPackSmallDisk -}
+moin :: IO ()
+moin = do
   input <- getContents
   let ddirs =
         case parse parseInput "stdin" input of
