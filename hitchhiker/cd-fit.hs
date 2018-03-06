@@ -3,7 +3,7 @@ module Main where
 import Control.Monad (liftM2, replicateM)
 import qualified Data.Functor.Identity as DFI
 import Data.Ix (inRange)
-import Data.List (maximumBy, notElem, sortBy)
+import Data.List (delete, maximumBy, sortBy)
 import Test.QuickCheck
 import qualified Text.Parsec.Prim as Prim
 import Text.ParserCombinators.Parsec
@@ -35,6 +35,10 @@ prop_DynamicPackSmallDisk :: [Dir] -> Bool
 prop_DynamicPackSmallDisk ds =
   let pack = dynamicPack 50000 ds
   in packSize pack == packSize (dynamicPack 50000 (dirs pack))
+
+prop_GreedyPackIsNoBetterThanDynamicPack :: [Dir] -> Bool
+prop_GreedyPackIsNoBetterThanDynamicPack ds =
+  packSize (greedyPack ds) <= packSize (dynamicPack mediaSize ds)
 
 -- parseInput parses output of "du -sb", which consists of many 
 -- lines, each of which describes a single directory
@@ -117,8 +121,9 @@ dynamicPack = bestDisk
 
 {- dynamicPack limit ddirs = precomputeDisksFor ddirs !! fromInteger limit -}
 main :: IO ()
-main = quickCheck prop_DynamicPackIsFixpoint
+main = quickCheck prop_GreedyPackIsNoBetterThanDynamicPack
 
+{- main = quickCheck prop_DynamicPackIsFixpoint -}
 {- main = quickCheck prop_DynamicPackSmallDisk -}
 moin :: IO ()
 moin = do
