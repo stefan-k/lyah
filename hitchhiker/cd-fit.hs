@@ -1,9 +1,31 @@
 module Main where
 
+import Control.Monad (liftM2, replicateM)
 import qualified Data.Functor.Identity as DFI
 import Data.List (sortBy)
+import Test.QuickCheck
 import qualified Text.Parsec.Prim as Prim
 import Text.ParserCombinators.Parsec
+
+-- we must teach QuickCheck how to generate arbitrary "Dir"s
+instance Arbitrary Dir
+  {- coarbitrary = undefined -}
+                                where
+  arbitrary = liftM2 Dir genSize genName
+    where
+      genSize = do
+        s <- choose (10, 1400)
+        return (s * 2014 * 1024)
+      genName = do
+        n <- choose (1, 300)
+        replicateM n (elements "foobar/")
+
+-- for convenience and by tradition, all QuickCheck tests begin with prefix "prop_".
+-- Assume that "ds" will be a random list of "Dir"s and coud your test
+prop_GreedyPackIsFixpoint :: [Dir] -> Bool
+prop_GreedyPackIsFixpoint ds =
+  let pack = greedyPack ds
+  in packSize pack == packSize (greedyPack (dirs pack))
 
 -- parseInput parses output of "du -sb", which consists of many 
 -- lines, each of which describes a single directory
